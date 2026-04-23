@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sales Research Tool</title>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #007aff;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --border-color: #333;
+            --success-color: #34c759;
+            --error-color: #ff3b30;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        @media (min-width: 900px) {
+            .container {
+                max-width: 900px;
+            }
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        input[type="text"] {
+            background: #2c2c2e;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px;
+            color: white;
+            font-size: 16px;
+            width: 100%;
+            outline: none;
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            opacity: 0.7;
+        }
+
+        .btn-secondary {
+            background: #3a3a3c;
+        }
+
+        .btn-scan {
+            background: var(--success-color);
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            background: #2c2c2e;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 10px 5px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .mode-btn.active {
+            border-color: var(--accent-color);
+            color: white;
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        #video-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none;
+            position: relative;
+            background: black;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .status-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .badge-q { background: #ff9500; color: black; }
+        .badge-s { background: #5856d6; color: white; }
+
+        .quote-url {
+            font-size: 11px;
+            color: var(--accent-color);
+            text-decoration: none;
+            word-break: break-all;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Sales Research Tool</h1>
+    </header>
+
+    <div class="card">
+        <div class="section-title">① バーコード読み取り</div>
+        <div id="video-container">
+            <video id="video"></video>
+        </div>
+        <button id="start-scan" class="btn btn-scan">
+            <span>📷 カメラを起動</span>
+        </button>
+        <div id="jan-display" class="status-text" style="font-size: 16px; font-weight: bold; color: var(--success-color); margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">② 型番検索</div>
+        <div class="input-group">
+            <input type="text" id="model-number" placeholder="例：WH-1000XM5 / EOS R6">
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">③ 調査設定 & 質問</div>
+        <div class="mode-selector">
+            <div class="mode-btn" data-pages="2" data-sentences="10">高速</div>
+            <div class="mode-btn active" data-pages="4" data-sentences="20">標準</div>
+            <div class="mode-btn" data-pages="8" data-sentences="40">徹底</div>
+        </div>
+        <div class="input-group">
+            <input type="text" id="user-question" placeholder="例：初心者向け？ デメリットは？">
+            <button id="start-research" class="btn">
+                <span>🔍 調査開始</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="progress-area" class="progress-container">
+        <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div id="status-msg" class="status-text">準備中...</div>
+    </div>
+
+    <div id="results">
+        <!-- 基本情報 -->
+        <div id="basic-info" class="hidden">
+            <div class="card">
+                <div class="section-title">基本情報</div>
+                <div id="product-name-display" style="font-size: 20px; font-weight: bold;"></div>
+                <div id="search-method-display" class="status-text" style="text-align: left;"></div>
+            </div>
+        </div>
+
+        <!-- 質問関連情報（最優先） -->
+        <div id="q-results" class="hidden">
+            <div class="card">
+                <div class="section-title">質問関連情報 (最優先)</div>
+                <div id="q-content"></div>
+            </div>
+        </div>
+
+        <!-- 一般特徴 -->
+        <div id="feature-results" class="hidden">
+            <div class="card">
+                <div class="section-title">一般特徴・評判</div>
+                <div id="feature-content"></div>
+            </div>
+        </div>
+
+        <!-- スペック情報（後から追加） -->
+        <div id="spec-results" class="hidden">
+            <div class="card">
+                <div class="section-title">商品スペック</div>
+                <div id="spec-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let selectedDeviceId;
+    let currentJan = "";
+    let searchMode = { pages: 4, sentences: 20 };
+
+    // UI Elements
+    const videoContainer = document.getElementById('video-container');
+    const startScanBtn = document.getElementById('start-scan');
+    const janDisplay = document.getElementById('jan-display');
+    const modelInput = document.getElementById('model-number');
+    const questionInput = document.getElementById('user-question');
+    const researchBtn = document.getElementById('start-research');
+    const progressArea = document.getElementById('progress-area');
+    const progressFill = document.getElementById('progress-fill');
+    const statusMsg = document.getElementById('status-msg');
+
+    // Mode Selection
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            searchMode.pages = parseInt(btn.dataset.pages);
+            searchMode.sentences = parseInt(btn.dataset.sentences);
+        });
+    });
+
+    // Barcode Scanner
+    startScanBtn.addEventListener('click', async () => {
+        if (videoContainer.style.display === 'block') {
+            stopScanner();
+            return;
+        }
+
+        try {
+            const videoInputDevices = await codeReader.listVideoInputDevices();
+            selectedDeviceId = videoInputDevices[videoInputDevices.length - 1].deviceId; // Back camera usually
+            
+            videoContainer.style.display = 'block';
+            startScanBtn.innerHTML = '<span>⏹ 停止</span>';
+            
+            codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+                if (result) {
+                    currentJan = result.text;
+                    janDisplay.innerText = "JAN: " + currentJan;
+                    modelInput.value = ""; // Clear model if JAN found
+                    stopScanner();
+                }
+            });
+        } catch (e) {
+            alert("カメラの起動に失敗しました。");
+            console.error(e);
+        }
+    });
+
+    function stopScanner() {
+        codeReader.reset();
+        videoContainer.style.display = 'none';
+        startScanBtn.innerHTML = '<span>📷 カメラを起動</span>';
+    }
+
+    // Research Logic
+    researchBtn.addEventListener('click', async () => {
+        const model = modelInput.value.trim();
+        const question = questionInput.value.trim();
+        
+        if (!currentJan && !model) {
+            alert("JANコードを読み取るか、型番を入力してください。");
+            return;
+        }
+
+        // Reset UI
+        document.getElementById('basic-info').classList.add('hidden');
+        document.getElementById('q-results').classList.add('hidden');
+        document.getElementById('feature-results').classList.add('hidden');
+        document.getElementById('spec-results').classList.add('hidden');
+        document.getElementById('q-content').innerHTML = "";
+        document.getElementById('feature-content').innerHTML = "";
+        document.getElementById('spec-content').innerHTML = "";
+        
+        progressArea.style.display = 'block';
+        updateProgress(10, "商品情報を特定中...");
+
+        const searchTerm = currentJan || model;
+        const productName = await identifyProduct(searchTerm);
+        
+        showBasicInfo(productName, currentJan ? "JAN検索" : "型番検索");
+        updateProgress(30, "質問に関連する情報を調査中...");
+
+        // Start Research
+        await performResearch(productName, question);
+    });
+
+    function updateProgress(percent, msg) {
+        progressFill.style.width = percent + "%";
+        statusMsg.innerText = msg;
+    }
+
+    function showBasicInfo(name, method) {
+        document.getElementById('basic-info').classList.remove('hidden');
+        document.getElementById('product-name-display').innerText = name;
+        document.getElementById('search-method-display').innerText = "検索方法: " + method;
+    }
+
+    async function identifyProduct(term) {
+        // In a real app without backend, we use DuckDuckGo or similar via proxy or just assume the term is the name
+        // For this demo, we'll use a search query to find the product name
+        return term; 
+    }
+
+    async function performResearch(product, question) {
+        const qQueries = [
+            `${product} ${question}`,
+            `${product} review 評判`,
+            `${product} デメリット 欠点`,
+            `${product} 比較 他社`
+        ].slice(0, searchMode.pages / 2);
+
+        const sQueries = [
+            `${product} specs スペック`,
+            `${product} 仕様 詳細`
+        ].slice(0, searchMode.pages / 2);
+
+        let completed = 0;
+        const total = qQueries.length + sQueries.length;
+
+        // 1. Question Related (Priority)
+        const qPromises = qQueries.map(async (q) => {
+            const results = await fetchAndParse(q);
+            displayResults(results, 'q-content', question, product);
+            completed++;
+            updateProgress(30 + (completed / total * 60), "情報を収集中...");
+        });
+
+        await Promise.all(qPromises);
+        document.getElementById('q-results').classList.remove('hidden');
+        document.getElementById('feature-results').classList.remove('hidden');
+
+        // 2. Spec Related
+        updateProgress(90, "スペック情報を整理中...");
+        const sPromises = sQueries.map(async (q) => {
+            const results = await fetchAndParse(q);
+            displayResults(results, 'spec-content', "スペック", product, true);
+            completed++;
+        });
+
+        await Promise.all(sPromises);
+        document.getElementById('spec-results').classList.remove('hidden');
+        
+        updateProgress(100, "調査完了");
+        setTimeout(() => progressArea.style.display = 'none', 2000);
+    }
+
+    async function fetchAndParse(query) {
+        // CORS制限を回避するため、CORS-anywhereなどのプロキシを使用
+        // 公開プロキシは不安定な場合があるため、複数のフォールバックを検討
+        const proxies = [
+            "https://api.allorigins.win/get?url=",
+            "https://corsproxy.io/?"
+        ];
+        
+        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        
+        for (const proxy of proxies) {
+            try {
+                const targetUrl = proxy.includes("allorigins") ? proxy + encodeURIComponent(searchUrl) : proxy + searchUrl;
+                const response = await fetch(targetUrl, { signal: AbortSignal.timeout(10000) });
+                
+                let html;
+                if (proxy.includes("allorigins")) {
+                    const data = await response.json();
+                    html = data.contents;
+                } else {
+                    html = await response.text();
+                }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const snippets = [];
+                const results = doc.querySelectorAll('.result__body');
+                results.forEach(res => {
+                    const snippet = res.querySelector('.result__snippet');
+                    const url = res.querySelector('.result__url');
+                    if (snippet && url) {
+                        snippets.push({
+                            text: snippet.innerText,
+                            url: url.innerText.trim()
+                        });
+                    }
+                });
+                
+                if (snippets.length > 0) return snippets;
+            } catch (e) {
+                console.warn(`Proxy ${proxy} failed:`, e);
+                continue;
+            }
+        }
+        return [];
+    }
+
+    function displayResults(items, containerId, keyword, product, isSpec = false) {
+        const container = document.getElementById(containerId);
+        const keywords = keyword.split(/[ ?？\s]/).filter(k => k.length > 0);
+        const seen = new Set(); // 重複排除
+        
+        items.forEach(item => {
+            const sentences = item.text.split(/[。！？\n]/).filter(s => s.trim().length > 5);
+            
+            sentences.forEach(s => {
+                const cleanS = s.trim();
+                if (seen.has(cleanS)) return;
+                
+                let priority = 0;
+                if (keywords.some(k => cleanS.includes(k))) priority += 10;
+                if (cleanS.includes(product)) priority += 5;
+                if (isSpec && /[\d]+[a-zA-Z%kgm]/.test(cleanS)) priority += 8;
+
+                if (priority > 0) {
+                    seen.add(cleanS);
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    
+                    const badgeClass = isSpec ? 'badge-s' : 'badge-q';
+                    const badgeText = isSpec ? 'SPEC' : 'INFO';
+                    
+                    div.innerHTML = `
+                        <div style="margin-bottom: 8px;">
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                            <span style="font-size: 15px;">${highlight(cleanS, keywords)}</span>
+                        </div>
+                        <a href="https://${item.url}" class="quote-url" target="_blank">🔗 ${item.url}</a>
+                    `;
+                    container.appendChild(div);
+                }
+            });
+        });
+        
+        if (container.children.length > 0) {
+            container.parentElement.parentElement.classList.remove('hidden');
+        }
+    }
+
+    function highlight(text, keywords) {
+        let html = text;
+        keywords.forEach(k => {
+            const reg = new RegExp(`(${k})`, 'gi');
+            html = html.replace(reg, '<b style="color: var(--accent-color)">$1</b>');
+        });
+        return html;
+    }
+</script>
+
+</body>
+</html>
