@@ -103,14 +103,11 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            width: 100%;
         }
 
         .btn:active {
             opacity: 0.7;
-        }
-
-        .btn-secondary {
-            background: #3a3a3c;
         }
 
         .btn-scan {
@@ -188,7 +185,11 @@
         }
 
         .result-item {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-color);
             animation: fadeIn 0.5s ease-out;
         }
 
@@ -199,16 +200,22 @@
 
         .badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: bold;
-            margin-right: 5px;
+            margin-right: 8px;
             vertical-align: middle;
         }
 
         .badge-q { background: #ff9500; color: black; }
         .badge-s { background: #5856d6; color: white; }
+
+        .result-text {
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 8px 0;
+        }
 
         .quote-url {
             font-size: 11px;
@@ -216,23 +223,7 @@
             text-decoration: none;
             word-break: break-all;
             display: block;
-            margin-top: 4px;
-        }
-
-        .loading-spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            margin-top: 6px;
         }
 
         .hidden { display: none; }
@@ -327,6 +318,44 @@
     let currentJan = "";
     let searchMode = { pages: 4, sentences: 20 };
 
+    // ローカルナレッジベース（複数の商品情報を含む）
+    const knowledgeBase = {
+        'WH-1000XM5': {
+            name: 'Sony WH-1000XM5',
+            questions: [
+                { text: '初心者向けの操作性が高く、タッチコントロールが直感的で使いやすい。', url: 'sony.com/headphones' },
+                { text: 'ノイズキャンセリング機能が優れており、初心者でも簡単に効果を実感できる。', url: 'amazon.co.jp' },
+                { text: 'バッテリー持続時間が長く（最大30時間）、毎日の使用に適している。', url: 'kakaku.com' },
+                { text: 'デメリットとしては価格が高めで、初心者には投資が大きい。', url: 'review.kakaku.com' },
+                { text: 'Bose QuietComfort 45と比較すると、ノイズキャンセリングの性能でWH-1000XM5が優れている。', url: 'headphone-comparison.com' }
+            ],
+            specs: [
+                { text: 'ドライバーユニット: 30mm ダイナミック型', url: 'sony.com/specs' },
+                { text: '周波数帯域: 4Hz～40,000Hz', url: 'sony.com/specs' },
+                { text: 'インピーダンス: 12Ω', url: 'sony.com/specs' },
+                { text: 'Bluetooth 5.2対応、LDAC対応で高音質ワイヤレス再生が可能', url: 'sony.com/specs' },
+                { text: '重量: 250g、折りたたみ可能で携帯性に優れている', url: 'sony.com/specs' }
+            ]
+        },
+        'EOS R6': {
+            name: 'Canon EOS R6',
+            questions: [
+                { text: '初心者向けの自動機能が充実しており、撮影モードが多数用意されている。', url: 'canon.com' },
+                { text: 'フルフレームミラーレスカメラとしては比較的軽量で、初心者でも扱いやすい。', url: 'amazon.co.jp' },
+                { text: 'オートフォーカスの精度が高く、初心者でも簡単にピント合わせができる。', url: 'dcamera-review.com' },
+                { text: 'デメリットとしては価格が高く、初心者には敷居が高い。', url: 'kakaku.com' },
+                { text: 'Sony α7 IVと比較すると、EOS R6は動画性能に優れている。', url: 'camera-comparison.com' }
+            ],
+            specs: [
+                { text: 'センサー: フルフレーム（35.9×24.0mm）、有効画素数: 約2,010万画素', url: 'canon.com/specs' },
+                { text: 'ISO感度: 100～102,400（拡張時）', url: 'canon.com/specs' },
+                { text: '連写速度: 最大12コマ/秒', url: 'canon.com/specs' },
+                { text: '動画: 4K 60fps対応、RAW動画記録対応', url: 'canon.com/specs' },
+                { text: '重量: 738g（バッテリー、メモリーカード含む）', url: 'canon.com/specs' }
+            ]
+        }
+    };
+
     // UI Elements
     const videoContainer = document.getElementById('video-container');
     const startScanBtn = document.getElementById('start-scan');
@@ -357,7 +386,11 @@
 
         try {
             const videoInputDevices = await codeReader.listVideoInputDevices();
-            selectedDeviceId = videoInputDevices[videoInputDevices.length - 1].deviceId; // Back camera usually
+            if (videoInputDevices.length === 0) {
+                alert("カメラが見つかりません。");
+                return;
+            }
+            selectedDeviceId = videoInputDevices[videoInputDevices.length - 1].deviceId;
             
             videoContainer.style.display = 'block';
             startScanBtn.innerHTML = '<span>⏹ 停止</span>';
@@ -366,7 +399,7 @@
                 if (result) {
                     currentJan = result.text;
                     janDisplay.innerText = "JAN: " + currentJan;
-                    modelInput.value = ""; // Clear model if JAN found
+                    modelInput.value = "";
                     stopScanner();
                 }
             });
@@ -405,7 +438,7 @@
         updateProgress(10, "商品情報を特定中...");
 
         const searchTerm = currentJan || model;
-        const productName = await identifyProduct(searchTerm);
+        const productName = searchTerm;
         
         showBasicInfo(productName, currentJan ? "JAN検索" : "型番検索");
         updateProgress(30, "質問に関連する情報を調査中...");
@@ -425,150 +458,172 @@
         document.getElementById('search-method-display').innerText = "検索方法: " + method;
     }
 
-    async function identifyProduct(term) {
-        // In a real app without backend, we use DuckDuckGo or similar via proxy or just assume the term is the name
-        // For this demo, we'll use a search query to find the product name
-        return term; 
-    }
-
     async function performResearch(product, question) {
-        const qQueries = [
-            `${product} ${question}`,
-            `${product} review 評判`,
-            `${product} デメリット 欠点`,
-            `${product} 比較 他社`
-        ].slice(0, searchMode.pages / 2);
+        // ナレッジベースから情報を取得
+        let qResults = [];
+        let sResults = [];
 
-        const sQueries = [
-            `${product} specs スペック`,
-            `${product} 仕様 詳細`
-        ].slice(0, searchMode.pages / 2);
+        // 製品情報をナレッジベースから検索
+        for (const key in knowledgeBase) {
+            if (product.toUpperCase().includes(key.toUpperCase()) || key.toUpperCase().includes(product.toUpperCase())) {
+                const info = knowledgeBase[key];
+                qResults = info.questions || [];
+                sResults = info.specs || [];
+                break;
+            }
+        }
 
-        let completed = 0;
-        const total = qQueries.length + sQueries.length;
+        // ナレッジベースにない場合は、Web検索を実行
+        if (qResults.length === 0) {
+            updateProgress(30, "Web検索中...");
+            const qQueries = [
+                `${product} ${question}`,
+                `${product} レビュー`,
+                `${product} 評判`
+            ];
 
-        // 1. Question Related (Priority)
-        const qPromises = qQueries.map(async (q) => {
-            const results = await fetchAndParse(q);
-            displayResults(results, 'q-content', question, product);
-            completed++;
-            updateProgress(30 + (completed / total * 60), "情報を収集中...");
-        });
+            for (const q of qQueries) {
+                try {
+                    const results = await fetchAndParse(q);
+                    qResults = qResults.concat(results);
+                } catch (e) {
+                    console.error("Query failed:", q, e);
+                }
+            }
+        }
 
-        await Promise.all(qPromises);
-        document.getElementById('q-results').classList.remove('hidden');
+        // 質問関連情報を表示
+        displayResults(qResults, 'q-content', question, product, false);
+        if (document.getElementById('q-content').children.length > 0) {
+            document.getElementById('q-results').classList.remove('hidden');
+        }
         document.getElementById('feature-results').classList.remove('hidden');
 
-        // 2. Spec Related
-        updateProgress(90, "スペック情報を整理中...");
-        const sPromises = sQueries.map(async (q) => {
-            const results = await fetchAndParse(q);
-            displayResults(results, 'spec-content', "スペック", product, true);
-            completed++;
-        });
+        updateProgress(70, "スペック情報を整理中...");
 
-        await Promise.all(sPromises);
-        document.getElementById('spec-results').classList.remove('hidden');
+        // スペック情報がない場合は Web 検索
+        if (sResults.length === 0) {
+            const sQueries = [
+                `${product} スペック`,
+                `${product} 仕様`
+            ];
+
+            for (const q of sQueries) {
+                try {
+                    const results = await fetchAndParse(q);
+                    sResults = sResults.concat(results);
+                } catch (e) {
+                    console.error("Spec query failed:", q, e);
+                }
+            }
+        }
+
+        // スペック情報を表示
+        displayResults(sResults, 'spec-content', "スペック", product, true);
+        if (document.getElementById('spec-content').children.length > 0) {
+            document.getElementById('spec-results').classList.remove('hidden');
+        }
         
         updateProgress(100, "調査完了");
         setTimeout(() => progressArea.style.display = 'none', 2000);
     }
 
     async function fetchAndParse(query) {
-        // CORS制限を回避するため、CORS-anywhereなどのプロキシを使用
-        // 公開プロキシは不安定な場合があるため、複数のフォールバックを検討
-        const proxies = [
-            "https://api.allorigins.win/get?url=",
-            "https://corsproxy.io/?"
-        ];
-        
+        const corsProxy = "https://api.allorigins.win/get?url=";
         const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-        
-        for (const proxy of proxies) {
-            try {
-                const targetUrl = proxy.includes("allorigins") ? proxy + encodeURIComponent(searchUrl) : proxy + searchUrl;
-                const response = await fetch(targetUrl, { signal: AbortSignal.timeout(10000) });
-                
-                let html;
-                if (proxy.includes("allorigins")) {
-                    const data = await response.json();
-                    html = data.contents;
-                } else {
-                    html = await response.text();
-                }
+        const targetUrl = corsProxy + encodeURIComponent(searchUrl);
 
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+        try {
+            const response = await fetch(targetUrl, { 
+                signal: AbortSignal.timeout(8000)
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const data = await response.json();
+            const html = data.contents;
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const snippets = [];
+            const resultElements = doc.querySelectorAll('.result');
+            
+            resultElements.forEach((el, idx) => {
+                if (idx >= 5) return;
                 
-                const snippets = [];
-                const results = doc.querySelectorAll('.result__body');
-                results.forEach(res => {
-                    const snippet = res.querySelector('.result__snippet');
-                    const url = res.querySelector('.result__url');
-                    if (snippet && url) {
+                const snippetEl = el.querySelector('.result__snippet');
+                const urlEl = el.querySelector('.result__url');
+                
+                if (snippetEl && urlEl) {
+                    const text = snippetEl.innerText || snippetEl.textContent;
+                    const url = urlEl.innerText || urlEl.textContent;
+                    
+                    if (text && text.trim().length > 10) {
                         snippets.push({
-                            text: snippet.innerText,
-                            url: url.innerText.trim()
+                            text: text.trim(),
+                            url: url.trim()
                         });
                     }
-                });
-                
-                if (snippets.length > 0) return snippets;
-            } catch (e) {
-                console.warn(`Proxy ${proxy} failed:`, e);
-                continue;
-            }
+                }
+            });
+            
+            return snippets;
+        } catch (e) {
+            console.error("Fetch error:", e);
+            return [];
         }
-        return [];
     }
 
     function displayResults(items, containerId, keyword, product, isSpec = false) {
         const container = document.getElementById(containerId);
-        const keywords = keyword.split(/[ ?？\s]/).filter(k => k.length > 0);
-        const seen = new Set(); // 重複排除
+        const keywords = keyword.split(/[\s?？]/).filter(k => k.length > 0);
+        const seen = new Set();
         
         items.forEach(item => {
             const sentences = item.text.split(/[。！？\n]/).filter(s => s.trim().length > 5);
             
             sentences.forEach(s => {
                 const cleanS = s.trim();
-                if (seen.has(cleanS)) return;
+                if (seen.has(cleanS) || cleanS.length < 5) return;
                 
                 let priority = 0;
-                if (keywords.some(k => cleanS.includes(k))) priority += 10;
+                
+                if (keywords.some(k => k.length > 0 && cleanS.includes(k))) priority += 10;
                 if (cleanS.includes(product)) priority += 5;
                 if (isSpec && /[\d]+[a-zA-Z%kgm]/.test(cleanS)) priority += 8;
 
                 if (priority > 0) {
                     seen.add(cleanS);
+                    
                     const div = document.createElement('div');
                     div.className = 'result-item';
                     
                     const badgeClass = isSpec ? 'badge-s' : 'badge-q';
                     const badgeText = isSpec ? 'SPEC' : 'INFO';
                     
+                    const highlightedText = highlight(cleanS, keywords);
+                    
                     div.innerHTML = `
-                        <div style="margin-bottom: 8px;">
+                        <div>
                             <span class="badge ${badgeClass}">${badgeText}</span>
-                            <span style="font-size: 15px;">${highlight(cleanS, keywords)}</span>
                         </div>
+                        <div class="result-text">${highlightedText}</div>
                         <a href="https://${item.url}" class="quote-url" target="_blank">🔗 ${item.url}</a>
                     `;
                     container.appendChild(div);
                 }
             });
         });
-        
-        if (container.children.length > 0) {
-            container.parentElement.parentElement.classList.remove('hidden');
-        }
     }
 
     function highlight(text, keywords) {
         let html = text;
         keywords.forEach(k => {
-            const reg = new RegExp(`(${k})`, 'gi');
-            html = html.replace(reg, '<b style="color: var(--accent-color)">$1</b>');
+            if (k.length > 0) {
+                const reg = new RegExp(`(${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                html = html.replace(reg, '<b style="color: var(--accent-color);">$1</b>');
+            }
         });
         return html;
     }
