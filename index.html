@@ -227,6 +227,33 @@
         }
 
         .hidden { display: none; }
+        
+        /* 端末情報用のスタイル追加 */
+        .device-info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+        .device-info-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        .device-info-list li:last-child {
+            border-bottom: none;
+        }
+        .device-info-list .info-label {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+        .device-info-list .info-value {
+            color: var(--success-color);
+            word-break: break-all;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -269,6 +296,28 @@
         </div>
     </div>
 
+    <div class="card">
+        <div class="section-title">④ ご利用端末のスペック情報</div>
+        <ul class="device-info-list">
+            <li>
+                <span class="info-label">画面解像度 (Screen Size)</span>
+                <span class="info-value" id="ds-screen">計算中...</span>
+            </li>
+            <li>
+                <span class="info-label">CPU論理コア数 (Hardware Concurrency)</span>
+                <span class="info-value" id="ds-cores">計算中...</span>
+            </li>
+            <li>
+                <span class="info-label">デバイスメモリ目安 (Device Memory)</span>
+                <span class="info-value" id="ds-memory">計算中...</span>
+            </li>
+            <li>
+                <span class="info-label">ユーザーエージェント (OS / Browser)</span>
+                <span class="info-value" id="ds-ua">計算中...</span>
+            </li>
+        </ul>
+    </div>
+
     <div id="progress-area" class="progress-container">
         <div class="progress-bar">
             <div id="progress-fill" class="progress-fill"></div>
@@ -277,7 +326,6 @@
     </div>
 
     <div id="results">
-        <!-- 基本情報 -->
         <div id="basic-info" class="hidden">
             <div class="card">
                 <div class="section-title">基本情報</div>
@@ -286,7 +334,6 @@
             </div>
         </div>
 
-        <!-- 質問関連情報（最優先） -->
         <div id="q-results" class="hidden">
             <div class="card">
                 <div class="section-title">質問関連情報 (最優先)</div>
@@ -294,7 +341,6 @@
             </div>
         </div>
 
-        <!-- 一般特徴 -->
         <div id="feature-results" class="hidden">
             <div class="card">
                 <div class="section-title">一般特徴・評判</div>
@@ -302,7 +348,6 @@
             </div>
         </div>
 
-        <!-- スペック情報（後から追加） -->
         <div id="spec-results" class="hidden">
             <div class="card">
                 <div class="section-title">商品スペック</div>
@@ -366,6 +411,26 @@
     const progressArea = document.getElementById('progress-area');
     const progressFill = document.getElementById('progress-fill');
     const statusMsg = document.getElementById('status-msg');
+
+    // ★新規追加: 端末スペック抽出関数
+    function extractDeviceSpecs() {
+        // 画面解像度
+        document.getElementById('ds-screen').innerText = `${window.screen.width} × ${window.screen.height}`;
+        
+        // CPU論理コア数
+        const cores = navigator.hardwareConcurrency;
+        document.getElementById('ds-cores').innerText = cores ? `${cores} コア` : '取得不可 (未対応ブラウザ)';
+        
+        // メモリ (一部のブラウザのみ対応)
+        const memory = navigator.deviceMemory;
+        document.getElementById('ds-memory').innerText = memory ? `約 ${memory} GB 以上` : '取得不可 (iOS / Safari等では非公開)';
+        
+        // ユーザーエージェント (OS, ブラウザ情報)
+        document.getElementById('ds-ua').innerText = navigator.userAgent;
+    }
+
+    // ページ読み込み完了時に端末スペックを抽出
+    document.addEventListener('DOMContentLoaded', extractDeviceSpecs);
 
     // Mode Selection
     document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -609,7 +674,7 @@
                             <span class="badge ${badgeClass}">${badgeText}</span>
                         </div>
                         <div class="result-text">${highlightedText}</div>
-                        <a href="https://${item.url}" class="quote-url" target="_blank">🔗 ${item.url}</a>
+                        <a href="${item.url.startsWith('http') ? '' : 'https://'}${item.url}" class="quote-url" target="_blank">🔗 ${item.url}</a>
                     `;
                     container.appendChild(div);
                 }
